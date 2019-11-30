@@ -33,14 +33,6 @@ Logger.getLogger("org").setLevel(Level.WARN)
 ```
 
 ```scala
-
-```
-
-```scala
-
-```
-
-```scala
 // Create a spark session
 // To have better integration with Jupyter, we use a wrapper class provided by almond-spark
 import org.apache.spark.sql._
@@ -53,24 +45,8 @@ import spark.implicits._
 ```
 
 ```scala
-
-```
-
-```scala
-
-```
-
-```scala
 // Retrieve the Spark context
 def sc = spark.sparkContext
-```
-
-```scala
-
-```
-
-```scala
-
 ```
 
 ```scala
@@ -232,113 +208,11 @@ Steps:
 rddMovies.flatMap(m => m.genres.mkString(",").split(","))
          .map(word => (word, 1))
          .reduceByKey(_ + _)
-         .sortBy(word => (word))
+         .sortBy(_._2, false)
          .take(10)
+         .map(g => (g._1 + " (" + g._2 + ")"))
          .foreach(println)
-```
-
-```scala
-
-```
-
-```scala
-
-```
-
-```scala
-
-```
-
-```scala
-
-```
-
-```scala
-
-```
-
-```scala
-
-```
-
-```scala
-
-```
-
-```scala
-
-```
-
-```scala
-
-```
-
-```scala
-
-```
-
-```scala
-
-```
-
-```scala
-
-```
-
-```scala
-
-```
-
-```scala
-
-```
-
-```scala
-
-```
-
-```scala
-
-```
-
-```scala
-
-```
-
-```scala
-
-```
-
-```scala
-
-```
-
-```scala
-
-```
-
-```scala
-
-```
-
-```scala
-
-```
-
-```scala
-
-```
-
-```scala
-
-```
-
-```scala
-
-```
-
-```scala
-
+         
 ```
 
 <!-- #region -->
@@ -393,7 +267,7 @@ Steps:
 <!-- #endregion -->
 
 ```scala
-// TODO student
+rddMovies.
 ```
 
 ## Part 2 - Create a basic Inverted Index
