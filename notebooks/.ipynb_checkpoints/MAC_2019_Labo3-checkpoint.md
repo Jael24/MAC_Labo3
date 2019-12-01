@@ -17,6 +17,8 @@ jupyter:
 
 Authors: Christopher MEIER and Guillaume HOCHET
 
+Students : Jael Dubey and Robel Teklehaimanot
+
 Based on the work of: Gary MARIGLIANO and Miguel SANTAMARIA
 
 For MAC course given by Nastaran FATEMI
@@ -72,6 +74,10 @@ case class Movie(id: Int, title: String, genres: Seq[String],
 ```
 
 ```scala
+
+```
+
+```scala
 val filename = "../data/IMDB-Movie-Data.csv"
 val moviesDF = spark.read.format("csv")
     .option("sep", ",")
@@ -84,6 +90,10 @@ val rddMovies = moviesDF.rdd.map(parseRow)
 ```scala
 // Print the title of the first 10 movies to see if they were correctly added.
 rddMovies.take(10).map(m => m.title).foreach(println)
+```
+
+```scala
+
 ```
 
 ## Part 1 - Playing with the movies using RDD functions
@@ -113,7 +123,13 @@ Steps:
 <!-- #endregion -->
 
 ```scala
-// TODO students
+// Print the movies contains "City".
+rddMovies.filter(m => m.title.contains("City")).map(m=>m.title).foreach(println)
+
+```
+
+```scala
+
 ```
 
 <!-- #region -->
@@ -142,7 +158,19 @@ Steps:
 <!-- #endregion -->
 
 ```scala
-// TODO student
+// Top 10 the worst ratings
+val rateMin = 0.0
+val rateMax = 10.0
+rddMovies.filter(m => m.rating>rateMin)
+         .filter(m => m.rating <= rateMax)
+         .sortBy(_.rating)
+         .take(10)
+         .map(m=>m.rating +" - "+ m.title).foreach(println)
+
+```
+
+```scala
+
 ```
 
 <!-- #region -->
@@ -195,7 +223,18 @@ Steps:
 <!-- #endregion -->
 
 ```scala
-// TODO student
+rddMovies.flatMap(m => m.genres.mkString(",").split(","))
+         .map(word => (word, 1))
+         .reduceByKey(_ + _)
+         .sortBy(_._2, false)
+         .take(10)
+         .map(g => (g._1 + " (" + g._2 + ")"))
+         .foreach(println)
+         
+```
+
+```scala
+
 ```
 
 <!-- #region -->
@@ -250,7 +289,16 @@ Steps:
 <!-- #endregion -->
 
 ```scala
-// TODO student
+rddMovies.map(m => (m.year, (m.votes, 1)))
+         .reduceByKey((m1, m2) => (m1._1 + m2._1, m1._2 + m2._2))
+         .map(n => (n._1, n._2._1 / n._2._2))
+         .sortBy(_._2, false)
+         .map(g => "year: " + g._1 + " average votes: " + g._2)
+         .foreach(println)
+```
+
+```scala
+
 ```
 
 ## Part 2 - Create a basic Inverted Index
@@ -295,7 +343,6 @@ Steps
     * - case insensitive
     *
     */
-    // TODO student
     // In this first function we are going to tokenize and order the descriptions of the movies, then return these data. We are not going to apply any search right now.
     def createInvertedIndex(movies: RDD[Movie]): RDD[(String, Iterable[Int])] = {
         // Define helper functions directly inside this function. In scala you can declare inner functions
@@ -304,45 +351,32 @@ Steps
         
         // Split the given string into an array of words (without any formatting), then return it.
         def tokenizeDescription(description: String): Seq[String] = {
-            // TODO student
+            description.split(" ")
         }
         
         // Remove the blank spaces (trim) in the given word, transform it in lowercase, then return it.
         def normalizeWord(word: String): String = {
-            // TODO student
+            val toRemove = " ".toSet
+            word.filterNot(toRemove)
+            
+            word.toLowerCase()
         }
         
         // For the sake of simplicity let's ignore the implementation (in a real case we would return true if w is a stopword, otherwise false).
-        // TODO student nothing here but still call this function in your invertedIndex creation process.
         def isStopWord(w: String): Boolean = {
           false
         }
         
         // For the sake of simplicity let's ignore the implementation (in a real case we would apply stemming to w and return the result, e.g. w=automation -> w=automat).
-        // TODO student nothing here but still call this function in your invertedIndex creation process.
         def applyStemming(w: String): String = {
           w
         }
       
-       // TODO student
-       // Here we are going to work on the movies RDD, by tokenizing and normalizing the description of every movie, then by building a key-value object that contains the tokens as keys, and the IDs of the movies as values
-       // (see the example on 4).
-       // The goal here is to do everything by chaining the possible transformations and actions of Spark.
-       // Possible steps:
-       //   1) What we first want to do here is applying the 4 previous methods on any movie's description. Be aware of the fact that we also want to keep the IDs of the movies.
-       //   2) For each tokenized word, create a tuple as (word, id), where id is the current movie id
-       //        [
-       //          ("toto", 120), ("mange", 120), ("des", 120), ("pommes", 120),
-       //          ("toto", 121), ("lance", 121), ("des", 121), ("photocopies", 121)
-       //        ]
-       //      Hint: you can use a `map` function inside another `map` function.
-       //   3) We finally need to find a way to remove duplicated keys and thus only having one entry per key, with all the linked IDs as values. For example:
-       //        [
-       //          ("toto", [120, 121]),
-       //          ("mange", [120]),
-       //          ...
-       //        ]
-       val invertedIndex = ...
+       val invertedIndex = movies.map(movie => (movie.id, movie.title, movie.genres, movie.description, movie.director, movie.actors, movie.year, movie.rating, movie.votes)) //create an inverted that use the movies' description
+                                 .map(movie => (movie._1, tokenizeDescription(movie._4))) //Tokenize description (movId, words)
+                                 .map(movie => (movie._1, (movie._2).map(word => normalizeWord(word)))) //Normalize words
+                                 .flatMap(movie => (movie._2).map(word => (word, movie._1))) //Mandatory to group by key
+                                 .groupByKey() 
 
        // Return the new-built inverted index.
        invertedIndex
@@ -352,14 +386,14 @@ Steps
 Now we would like to use our inverted index to display the top N most used words in the descriptions of movies.
 
 ```scala
-// TODO student
 // Here we are going to operate the analytic and display its result on a given inverted index (that will be obtained from the previous function).
 def topN(invertedIndex: RDD[(String, Iterable[Int])], N: Int): Unit = {
-  // TODO student
   // We are going to work on the given invertedIndex array to do our analytic:
   //   1) Find a way to get the number of movie in which a word appears.
   //   2) Keep only the top N words and their occurence.
-  val topMovies = ...
+  val topMovies = invertedIndex.sortBy(_._2, false)
+                               .take(N)
+                               .map(m => "Word " + m._1 + " is used " + m._2.mkString(",") + " times.")
   
   // Print the words and the number of descriptions in which they appear.
   println("Top '" + N + "' most used words")
@@ -379,6 +413,10 @@ invertedIndex.take(3).foreach(x => println(x._1 + ": " + x._2.mkString(", ")))
 topN(invertedIndex, 10)
 ```
 
+```scala
+
+```
+
 ## Part 3 - Dataframe and SparkSQL
 
 For all of the following exercices, write your queries in two different ways: 
@@ -394,7 +432,21 @@ For all of the following exercices, write your queries in two different ways:
 * Show the first 10 lines of the moviesDF as a table
 
 ```scala
-// TODO students
+moviesDF.createOrReplaceTempView("movies")
+
+// Query using SQL literal
+val showMoviesSQL = spark.sql("SELECT * FROM movies LIMIT 10")
+showMoviesSQL.printSchema()
+showMoviesSQL.show()
+
+// Query using DataFrame API
+val showMoviesDF = moviesDF.select("*")
+                           .limit(10)
+showMoviesDF.show()
+```
+
+```scala
+
 ```
 
 ### Exercice 2 - Get the movies (id, title, votes, director) whose title contains "City" 
@@ -406,19 +458,66 @@ Apply two different ways:
 
 
 ```scala
-// TODO students
+moviesDF.createOrReplaceTempView("movies")
+
+// Query using SQL literal
+val showMoviesSQL = spark.sql("SELECT rank AS id, title, votes, director FROM movies WHERE title LIKE '%City%'")
+showMoviesSQL.printSchema()
+showMoviesSQL.show()
+
+import spark.implicits._
+
+// Query using DataFrame API
+val showMoviesDF = moviesDF.select($"rank".alias("id"), $"title", $"votes", $"director")
+                           .filter($"title".contains("City"))
+showMoviesDF.show()
+```
+
+```scala
+
 ```
 
 ### Exercice 3 - Get the number of movies which have a number of votes between 500 and 2000 (inclusive range)
 
 ```scala
-// TODO students
+moviesDF.createOrReplaceTempView("movies")
+
+// Query using SQL literal
+val showMoviesSQL = spark.sql("SELECT count(*) AS NbreMovies FROM movies WHERE votes >= 500 AND votes <= 2000")
+                            .show()
+
+import spark.implicits._
+
+// Query using DataFrame API
+val showMoviesDF = moviesDF.where($"votes" >= 500 && $"votes" <= 2000)
+                           .agg(count("*").alias("NbreMovies"))
+                           .show()
+```
+
+```scala
+
 ```
 
 ### Exercice 4 - Get the minimum, maximum and average rating of films per director. Sort the results by minimum rating.  
 
 ```scala
-// TODO students
+moviesDF.createOrReplaceTempView("movies")
+
+// Query using SQL literal
+val showMoviesSQL = spark.sql("SELECT director, MIN(rating), MAX(rating), AVG(rating) FROM movies GROUP BY director ORDER BY 2")
+                            .show()
+
+import spark.implicits._
+
+// Query using DataFrame AP
+val showMoviesDF = moviesDF.groupBy($"director")
+                           .agg(min($"rating").alias("MIN(rating)"), max($"rating").alias("MAX(rating)"), avg($"rating").alias("AVG(rating)"))
+                           .orderBy("MIN(rating)")
+                           .show()
+```
+
+```scala
+
 ```
 
 <!-- #region -->
@@ -438,7 +537,23 @@ Apply two different ways:
 <!-- #endregion -->
 
 ```scala
-// TODO students
+moviesDF.createOrReplaceTempView("movies")
+
+// Query using SQL literal
+val showMoviesSQL = spark.sql("SELECT title, movies.year, rating FROM movies INNER JOIN (SELECT year, MIN(rating) AS min FROM movies GROUP BY year) AS min_rating ON movies.year = min_rating.year WHERE movies.rating = min_rating.min ORDER BY min_rating.min")
+                            .show()
+
+import spark.implicits._
+
+// Query using DataFrame AP
+val showMoviesDF = moviesDF.groupBy("year")
+                           .agg(min($"rating").alias("MIN(rating)"))
+                           .join(moviesDF.select($"title", $"year", $"rating"), "year")
+                           .where($"MIN(rating)" === $"rating")
+                           .orderBy("rating")
+                           .select("title", "year", "rating")
+                           .show()
+
 ```
 
 <!-- #region -->
@@ -463,9 +578,17 @@ Note that when using the dataframe API:
 <!-- #endregion -->
 
 ```scala
-// TODO students
-```
+moviesDF.createOrReplaceTempView("movies")
 
-```scala
+// Query using SQL literal
+val showMoviesSQL = spark.sql("SELECT movies.director, movies.title AS title1, other_movies.title AS title2 FROM movies INNER JOIN (SELECT director, title FROM movies) AS other_movies ON movies.director = other_movies.director WHERE movies.title != other_movies.title")
+                            .show()
 
+import spark.implicits._
+
+// Query using DataFrame AP
+val showMoviesDF = moviesDF.join(moviesDF.select($"director", $"title".alias("title2")), "director")
+                           .where($"title2" !== $"title")
+                           .select("director", "title", "title2")
+                           .show()
 ```

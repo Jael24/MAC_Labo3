@@ -17,6 +17,8 @@ jupyter:
 
 Authors: Christopher MEIER and Guillaume HOCHET
 
+Students : Jael Dubey and Robel Teklehaimanot
+
 Based on the work of: Gary MARIGLIANO and Miguel SANTAMARIA
 
 For MAC course given by Nastaran FATEMI
@@ -33,10 +35,6 @@ Logger.getLogger("org").setLevel(Level.WARN)
 ```
 
 ```scala
-
-```
-
-```scala
 // Create a spark session
 // To have better integration with Jupyter, we use a wrapper class provided by almond-spark
 import org.apache.spark.sql._
@@ -49,26 +47,14 @@ import spark.implicits._
 ```
 
 ```scala
-
-```
-
-```scala
 // Retrieve the Spark context
 def sc = spark.sparkContext
-```
-
-```scala
-
 ```
 
 ```scala
 case class Movie(id: Int, title: String, genres: Seq[String],
                  description: String, director: String, actors: Seq[String],
                  year: Int, rating: Float, votes: Int)
-```
-
-```scala
-
 ```
 
 ```scala
@@ -99,10 +85,6 @@ val moviesDF = spark.read.format("csv")
     .option("header", "true")
     .load(filename)
 val rddMovies = moviesDF.rdd.map(parseRow)
-```
-
-```scala
-
 ```
 
 ```scala
@@ -315,6 +297,10 @@ rddMovies.map(m => (m.year, (m.votes, 1)))
          .foreach(println)
 ```
 
+```scala
+
+```
+
 ## Part 2 - Create a basic Inverted Index
 
 The goal of this part is to show you how to create an inverted index that indexes words from all the movies' description.
@@ -427,6 +413,10 @@ invertedIndex.take(3).foreach(x => println(x._1 + ": " + x._2.mkString(", ")))
 topN(invertedIndex, 10)
 ```
 
+```scala
+
+```
+
 ## Part 3 - Dataframe and SparkSQL
 
 For all of the following exercices, write your queries in two different ways: 
@@ -455,6 +445,10 @@ val showMoviesDF = moviesDF.select("*")
 showMoviesDF.show()
 ```
 
+```scala
+
+```
+
 ### Exercice 2 - Get the movies (id, title, votes, director) whose title contains "City" 
 
 Apply two different ways: 
@@ -479,6 +473,10 @@ val showMoviesDF = moviesDF.select($"rank".alias("id"), $"title", $"votes", $"di
 showMoviesDF.show()
 ```
 
+```scala
+
+```
+
 ### Exercice 3 - Get the number of movies which have a number of votes between 500 and 2000 (inclusive range)
 
 ```scala
@@ -496,6 +494,10 @@ val showMoviesDF = moviesDF.where($"votes" >= 500 && $"votes" <= 2000)
                            .show()
 ```
 
+```scala
+
+```
+
 ### Exercice 4 - Get the minimum, maximum and average rating of films per director. Sort the results by minimum rating.  
 
 ```scala
@@ -505,14 +507,17 @@ moviesDF.createOrReplaceTempView("movies")
 val showMoviesSQL = spark.sql("SELECT director, MIN(rating), MAX(rating), AVG(rating) FROM movies GROUP BY director ORDER BY 2")
                             .show()
 
-//import spark.implicits._
+import spark.implicits._
 
 // Query using DataFrame AP
-/*val showMoviesDF = moviesDF.groupBy($"director")
-                           .min("rating")
-                           .max("rating")
-                           .avg("rating")
-                           .show()*/
+val showMoviesDF = moviesDF.groupBy($"director")
+                           .agg(min($"rating").alias("MIN(rating)"), max($"rating").alias("MAX(rating)"), avg($"rating").alias("AVG(rating)"))
+                           .orderBy("MIN(rating)")
+                           .show()
+```
+
+```scala
+
 ```
 
 <!-- #region -->
@@ -532,7 +537,23 @@ val showMoviesSQL = spark.sql("SELECT director, MIN(rating), MAX(rating), AVG(ra
 <!-- #endregion -->
 
 ```scala
-// TODO students
+moviesDF.createOrReplaceTempView("movies")
+
+// Query using SQL literal
+val showMoviesSQL = spark.sql("SELECT title, movies.year, rating FROM movies INNER JOIN (SELECT year, MIN(rating) AS min FROM movies GROUP BY year) AS min_rating ON movies.year = min_rating.year WHERE movies.rating = min_rating.min ORDER BY min_rating.min")
+                            .show()
+
+import spark.implicits._
+
+// Query using DataFrame AP
+val showMoviesDF = moviesDF.groupBy("year")
+                           .agg(min($"rating").alias("MIN(rating)"))
+                           .join(moviesDF.select($"title", $"year", $"rating"), "year")
+                           .where($"MIN(rating)" === $"rating")
+                           .orderBy("rating")
+                           .select("title", "year", "rating")
+                           .show()
+
 ```
 
 <!-- #region -->
@@ -557,9 +578,17 @@ Note that when using the dataframe API:
 <!-- #endregion -->
 
 ```scala
-// TODO students
-```
+moviesDF.createOrReplaceTempView("movies")
 
-```scala
+// Query using SQL literal
+val showMoviesSQL = spark.sql("SELECT movies.director, movies.title AS title1, other_movies.title AS title2 FROM movies INNER JOIN (SELECT director, title FROM movies) AS other_movies ON movies.director = other_movies.director WHERE movies.title != other_movies.title")
+                            .show()
 
+import spark.implicits._
+
+// Query using DataFrame AP
+val showMoviesDF = moviesDF.join(moviesDF.select($"director", $"title".alias("title2")), "director")
+                           .where($"title2" !== $"title")
+                           .select("director", "title", "title2")
+                           .show()
 ```
